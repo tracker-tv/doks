@@ -1,0 +1,18 @@
+name: DOKS Cluster
+
+on:
+  push:
+    branches:
+      - main
+      - prod
+
+jobs:
+  do:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Update DO cluster
+        run: |
+          export DIGITALOCEAN_ACCESS_TOKEN="${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}"
+          make deploy

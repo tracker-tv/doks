@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+
+if ! [ -e /etc/tracker-tv-do.conf ]; then
+  if tty >/dev/null; then
+    export TTYOPTS=-it
+  else
+    export TTYOPTS=
+  fi
+
+  arch=$([ "$(arch)" = "x86_64" ] && echo "amd64" || echo "arm64")
+  docker run --rm $TTYOPTS -w /opt -v /var/run/docker.sock:/var/run/docker.sock -e DIGITALOCEAN_ACCESS_TOKEN -v $PWD:/opt ghcr.io/tracker-tv/do-$arch:latest bin/do
+
+  exit
+fi
+
+cluster_name=doks
+region=fra1
+k8s_version=1.31.1-do.5
+
+if ! doctl kubernetes cluster get "$cluster_name" > /dev/null 2>&1; then
+  echo "Creating cluster \"$cluster_name\"..."
+  doctl kubernetes cluster create $cluster_name --region $region --version $k8s_version --ha --cluster-subnet 10.244.0.0/16 --service-subnet 10.245.0.0/16 --node-pool "name=pool-jkgj5zd8x;size=s-2vcpu-2gb;count=1;auto-scale=false"
+else
+  echo "Cluster \"$cluster_name\" already exists."
+  k8s_current_version=$(doctl kubernetes cluster get doks --output json | jq -r '.[0].version')
+  if [ "$k8s_version" != "$k8s_current_version" ]; then
+    echo "Upgrading cluster \"$cluster_name\" from $k8s_current_version to $k8s_version..."
+    doctl kubernetes cluster upgrade $cluster_name --version $k8s_version
+  fi
+fi
+
+doctl kubernetes cluster kubeconfig save "$cluster_name"
