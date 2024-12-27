@@ -9,6 +9,19 @@
   "schedule": "* 0-10 * * 1",
   "timezone": "Europe/Paris",
   "enabledManagers": [
+    "custom.regex",
     "github-actions"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "bin\\/do$"
+      ],
+      "matchStrings": [
+        "#\\s*renovate-helm: depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?\\s.*?_version\\s*=\\s*(?<currentValue>.*)"
+      ],
+      "datasourceTemplate": "helm"
+    }
   ]
 }
