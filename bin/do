@@ -21,7 +21,7 @@ k8s_version=1.31.1-do.5
 
 if ! doctl kubernetes cluster get "$cluster_name" > /dev/null 2>&1; then
   echo "Creating cluster \"$cluster_name\"..."
-  doctl kubernetes cluster create $cluster_name --region $region --version $k8s_version --ha --cluster-subnet 10.244.0.0/16 --service-subnet 10.245.0.0/16 --node-pool "name=pool-jkgj5zd8x;size=s-2vcpu-2gb;count=1;auto-scale=false"
+  doctl kubernetes cluster create $cluster_name --region $region --version $k8s_version --node-pool "name=pool-medium;size=s-2vcpu-2gb;count=1;auto-scale=false,name=pool-high;size=s-2vcpu-4gb;count=1;auto-scale=false"
 else
   echo "Cluster \"$cluster_name\" already exists."
   k8s_current_version=$(doctl kubernetes cluster get doks --output json | jq -r '.[0].version')
@@ -32,3 +32,14 @@ else
 fi
 
 doctl kubernetes cluster kubeconfig save "$cluster_name"
+
+echo "Install ArgoCD"
+argocd_version=7.7.11
+helm repo add argo https://argoproj.github.io/argo-helm
+helm upgrade \
+  --install argocd argo/argo-cd \
+  --namespace "argocd" \
+  --version $argocd_version \
+  --create-namespace \
+  --values k8s/helm/argocd/affinity.yml \
+  --wait
