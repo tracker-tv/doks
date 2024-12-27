@@ -34,8 +34,9 @@ fi
 doctl kubernetes cluster kubeconfig save "$cluster_name"
 
 echo "Install ArgoCD"
-argocd_version=7.7.11
 helm repo add argo https://argoproj.github.io/argo-helm
+# renovate-helm: depName=argocd registryUrl=https://argoproj.github.io/argo-helm
+argocd_version=7.7.11
 helm upgrade \
   --install argocd argo/argo-cd \
   --namespace "argocd" \
