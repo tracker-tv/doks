@@ -42,5 +42,59 @@ helm upgrade \
   --namespace "argocd" \
   --version $argocd_version \
   --create-namespace \
-  --values k8s/helm/argocd/affinity.yml \
+  --values k8s/argocd/helm/affinity.yml \
   --wait
+
+echo "Install cert-manager"
+helm repo add jetstack https://charts.jetstack.io
+cert_manager_version=v1.16.2
+helm upgrade \
+  --install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --version $cert_manager_version \
+  --create-namespace \
+  --set crds.enabled=true
+
+echo "Install nginx ingress controller"
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+ingress_nginx_version=4.11.3
+helm upgrade \
+  --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --version $ingress_nginx_version \
+  --create-namespace
+
+echo "Waiting for ingress-nginx to be ready..."
+sleep 10
+
+kubectl apply -f k8s/argocd/ingress-controller.yml
+
+app_domain=tracker-tv.com
+argocd_record=argocd
+
+if ! doctl compute domain get $app_domain > /dev/null 2>&1; then
+  echo "Adding domain \"$app_domain\"..."
+  doctl compute domain create $app_domain
+else
+  echo "Domain \"$app_domain\" already exists."
+fi
+
+a_record=$(doctl compute domain records list $app_domain -o json | jq '.[] | select(.name == "argocd" and .type == "A").name')
+
+while true; do
+  argocd_server_ingress_ip=$(kubectl get ingress -n argocd argocd-server-ingress -o json | jq -r '.status.loadBalancer.ingress[0].ip')
+
+  # When ingress IP is available, add A record for "argocd"
+  if [[ "$argocd_server_ingress_ip" != "null" && -n "$argocd_server_ingress_ip" ]]; then
+    if [ "$a_record" == "" ]; then
+      echo "Adding record A for \"argocd\"..."
+      doctl compute domain records create $app_domain --record-type A --record-name $argocd_record --record-data $argocd_server_ingress_ip --record-ttl 3600
+    else
+      echo "Record A \"argocd\" already exists."
+    fi
+    break
+  fi
+
+  echo "Waiting for ingress IP..."
+  sleep 5
+done
