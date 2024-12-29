@@ -98,3 +98,7 @@ while true; do
   echo "Waiting for ingress IP..."
   sleep 5
 done
+
+echo "Change ArgoCD url"
+kubectl -n argocd patch cm argocd-cm -p '{"data": {"url": "https://argocd.tracker-tv.com"}}'
+kubectl rollout -n argocd restart deploy argocd-server
