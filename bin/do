@@ -99,6 +99,17 @@ while true; do
   sleep 5
 done
 
+echo "Install NATS server"
+helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+nats_version=1.2.8
+helm upgrade \
+  --install nats nats/nats \
+  --namespace nats \
+  --version $nats_version \
+  --create-namespace \
+  --values k8s/nats/helm/affinity.yml \
+  --wait
+
 echo "Change ArgoCD url"
 kubectl -n argocd patch cm argocd-cm -p '{"data": {"url": "https://argocd.tracker-tv.com"}}'
 kubectl rollout -n argocd restart deploy argocd-server
